@@ -1,0 +1,247 @@
+setup project
+-------------------------------------------------------------------------
+ 
+py -m venv myvenv # สร้าง virtual environment
+
+myvenv\Scripts\activate.bat # activate ตัว environment 
+ 
+pip install django # ติดตั้ง Django
+
+pip install psycopg2 # ติดตั้ง psycopg2
+
+django-admin startproject myshop # สร้าง project ชื่อ myshop
+
+cd myshop # เข้าไปใน myshop เพื่อที่จะได้สร้าง app ได้
+
+python manage.py startapp shop # สร้าง app ชื่อ shop
+
+สร้าง database ชื่อ shop 
+
+-------------------------------------------------------------------------
+
+แก้ settings 
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "shop",
+        "USER": "postgres",
+        "PASSWORD": "246810",
+        "HOST": "localhost",
+        "PORT": "5432",
+    }
+}
+
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    
+    "django_extensions",
+    "shop",
+]
+
+
+python manage.py makemigrations 
+python manage.py migrate
+
+-------------------------------------------------------------------------
+
+pip install django-extensions ipython jupyter notebook 
+
+pip install ipython==8.25.0 jupyter_server==2.14.1 jupyterlab==4.2.2 jupyterlab_server==2.27.2 notebook==6.5.7
+
+mkdir notebooks
+
+python manage.py shell_plus --notebook
+
+-------------------------------------------------------------------------
+
+## อย่าลืม import ก่อรเริ่มทำ ##
+## เปลี่ยนใน jupyter ตรง kernel> change kernel> Django Shell-Plus ##
+
+import os
+os.environ['DJANGO_ALLOW_ASYNC_UNSAFE'] = "true"
+
+
+from app_name.models import *
+from django.db.models import F, Q, Count, Value, Avg, Max, Min, Sum
+from django.db.models.functions import Length, Upper, Concat
+from django.db.models.lookups import GreaterThan
+import json
+
+-------------------------------------------------------------------------
+
+Week4 
+
+- Insert
+    b = Blog(name="Beatles Blog", tagline="All the latest Beatles news.")
+    b.save()
+
+- Update
+    b.name = "New name"
+    b.save()
+
+- Update foreign key One to many
+    entry = Entry.objects.get(pk=1) 
+    cheese_blog = Blog.objects.get(name="Cheddar Talk")
+    entry.blog = cheese_blog # Update FK blog ของ entry (ID = 1) ไปที่ cheese_blog (name = "Cheddar Talk")
+    entry.save()
+
+- update ManyToManyField
+- สมมติเราต้องการ add instance joe เป็นหนึ่งใน authors ของ instance entry (ID = 1)
+    entry = Entry.objects.get(pk=1)
+    joe = Author.objects.create(name="Joe")
+    entry.authors.add(joe)
+ 
+- exclude() คือการใส่เงื่อนไขที่จะกรองข้อมูลออก ดังในตัวอย่างด้านล่างคือการกรองข้อมูล blog entries หลังจากวันปัจจุบันออก
+    Entry.objects.filter(headline__startswith="What").exclude(
+    pub_date__gte=datetime.date.today()
+    ).filter(pub_date__gte=datetime.date(2005, 1, 30))
+
+- Limit
+    Entry.objects.all()[:5] # LIMIT 5
+    Entry.objects.all()[5:10] # OFFSET 5 LIMIT 5
+
+- Delete
+    Entry.objects.filter(pub_date__year=2005).delete()
+
+- Copying model instances
+    blog = Blog(name="My blog", tagline="Blogging is easy")
+    blog.save()  # blog.pk == 1
+
+    blog.pk = None
+    blog._state.adding = True
+    blog.save()  # blog.pk == 2
+
+
+- Field lookups
+- contains and icontains
+    books = Book.objects.filter(name__icontains="python") 
+    # icontains คือพิมพ์เล็กพิมใหญ่ได้หมด
+    # contains คือพิมพ์เล็กพิมใหญ่มีผล
+
+- startswith, endswith
+    book = book.objects.filter(name__startswith="Python")
+
+- in
+    Entry.objects.filter(headline__in=('a', 'b', 'c'))
+ 
+- gt, gte, lt, lte
+    Book.objects.filter(rating__gt=5)
+
+- range
+    Entry.objects.filter(pub_date__range=(start_date, end_date))
+
+- date, year, month, day, week, week_day
+    __year __month __day __hour __ minute __second
+
+- isnull
+    Entry.objects.filter(pub_date__isnull=True)
+
+- Queryset
+    F ใช้เปรียบเทียบ field ใน model เดียวกัน
+    Entry.objects.filter(rating__lt=F("number_of_comments") + F("number_of_pingbacks"))
+
+    Q ใช้ใน การ OR, NOT
+    Entry.objects.filter(Q(headline__startswith="Who") | Q(headline__startswith="What"))
+
+-------------------------------------------------------------------------
+
+Week5
+
+- Query Expressions
+- aggregate Sum(), Min(), Max(), Count(), Avg()
+    
+    Book.objects.aggregate(Avg("price", default=0)) # default มีหรือไม่มีก็ได้
+
+    above = Publisher.objects.annotate(above_4=Count("book", filter=Q(book__rating__gt=4)))
+    print(above[0].above_4)
+
+    pubs = Publisher.objects.annotate(num_books=Count("book")).order_by("-num_books")[:5]
+    order_by("num_books"): เรียงจาก น้อยไปมาก (ascending order)
+    order_by("-num_books"): เรียงจาก มากไปน้อย (descending order)
+
+- annotate
+    company = (
+    Company.objects.filter(num_employees__gt=F("num_chairs"))
+    .annotate(chairs_needed=F("num_employees") - F("num_chairs"))
+    .first()
+    )
+
+- Create a new company using expressions
+    company = Company.objects.create(name="Google", ticker=Upper(Value("goog")))
+ 
+
+
+- Model Relationships
+
+- Many-to-one
+
+    class Publisher(models.Model):
+        name = models.CharField(max_length=300)
+
+    class Book(models.Model):
+        name = models.CharField(max_length=300)
+        pages = models.IntegerField()
+        price = models.DecimalField(max_digits=10, decimal_places=2)
+        rating = models.FloatField()
+        authors = models.ManyToManyField(Author)
+        publisher = models.ForeignKey(Publisher, on_delete=models.CASCADE)
+        pubdate = models.DateField()
+
+
+    query ทางฝั่ง one
+    pub = Publisher.objects.get(name="Penguin Books")
+    info = pub.book_set.filter(price__gt=5, rating__gt=3)
+    for i in info:
+        print(f"NAMEPUB: {pub.name}, ID: {i.id}, NAME: {i.name}, PRICE: {i.price}, RATING: {i.rating}")
+
+    query ทางฝั่ง many
+    info = Bookdel.objects.filter(publisher__name="Penguin Books", price__gt=5, rating__gt=3)
+    for i in info:
+        print(f"NAMEPUB: {publisher.name}, ID: {i.id}, NAME: {i.name}, PRICE: {i.price}, RATING: {i.rating}")
+
+
+- one-to-one
+    Store.objects.filter(storecontact__mobile="021113333") # สามารถใช้ชื่อตาราง__field ได้เลย
+
+
+- many-to-many
+
+    class Author(models.Model):
+        name = models.CharField(max_length=100)
+        age = models.IntegerField()
+
+    class Book(models.Model):
+        name = models.CharField(max_length=300)
+        pages = models.IntegerField()
+        price = models.DecimalField(max_digits=10, decimal_places=2)
+        rating = models.FloatField()
+        authors = models.ManyToManyField(Author)
+        publisher = models.ForeignKey(Publisher, on_delete=models.CASCADE)
+        pubdate = models.DateField()
+
+- เพิ่มข้อมูล
+- สำหรับการเพิ่ม author ให้กับ book
+    a1 = Author.objects.get(pk=1)
+    a2 = Author.objects.get(pk=2)
+    book = Book.objects.get(pk=10)
+    book.authors.add(a1, a2)
+
+- สำหรับการเพิ่ม book ใหม่ให้กับ author
+    b1 = Book.objects.get(pk=11)
+    b2 = Book.objects.get(pk=12)
+    author = Author.objects.get(pk=10)
+    author.book_set.add(b1, b2)
+
+- remove
+    book = Book.objects.get(pk=10)
+    book.authors.remove(a1)
+
+-------------------------------------------------------------------------
+
